@@ -5,7 +5,7 @@
 #include <time.h>
 #include <cuda.h>
 
-#define DEFAULT_THREAD_PER_BLOCK 32
+#define DEFAULT_THREAD_PER_BLOCK 512
 #define MAX_DEFAULT_SIZE_QUEUE 50
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -44,7 +44,15 @@ int maxCombinations(int n, int k) {
 }
 
 __host__ __device__
-void initialCombination(int n, int k, int* combinationArray, int idx) {
+int maxCombinations(int n, int k, unsigned int *cacheMaxCombination) {
+    if (cacheMaxCombination[k]) {
+        return cacheMaxCombination[k];
+    }
+    return cacheMaxCombination[k] = maxCombinations(n, k);
+}
+
+__host__ __device__
+void initialCombination(int n, int k, int* combinationArray, int idx, unsigned int *cacheMaxCombination) {
     int a = n;
     int b = k;
     long x = (maxCombinations(n, k) - 1) - idx;
@@ -229,13 +237,16 @@ void serialFindHullNumber(UndirectedCSRGraph *graph) {
 
 __global__ void kernelFindHullNumber(int *csrColIdxs, int nvertices,
         int *csrRowOffset, int sizeRowOffset, int maxCombination,
-        int k, int offset, int *result) {
+        int k, int offset, int *result, unsigned char *aux,
+        unsigned int *cacheMaxCombination) {
+    //    printf("\n%d-Comb(%d,%d)=%d", k, nvertices, k, maxCombination);
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     //    printf("\nT(%2d)= G(%d,%d),C(%d,%d)=%d", idx, nvertices, sizeRowOffset, nvertices, k, maxCombination);
     //    int idx = 1;
     bool found = false;
     int *currentCombination = (int *) malloc(k * sizeof (int));
-    unsigned char *aux = (unsigned char *) malloc(nvertices * sizeof (unsigned char));
+    int auxoffset = idx*nvertices;
+    //     = (unsigned char *) malloc(nvertices * sizeof (unsigned char));
     int sizeCurrentHcp3 = 0;
     int limmit = (idx + 1) * offset;
     if (limmit > maxCombination) {
@@ -245,6 +256,8 @@ __global__ void kernelFindHullNumber(int *csrColIdxs, int nvertices,
 
     int maxSizeQueue = MAX(nvertices / 2, MAX_DEFAULT_SIZE_QUEUE);
     int *queue = (int *) malloc(maxSizeQueue * sizeof (int));
+
+    //    bool debugar = false;
 
     //    printf("\nT(%2d:|%d|-|%d|)", idx, i, limmit);
 
@@ -266,10 +279,19 @@ __global__ void kernelFindHullNumber(int *csrColIdxs, int nvertices,
     //    }
     //    printf("}");
 
-    initialCombination(nvertices, k, currentCombination, i);
+    initialCombination(nvertices, k, currentCombination, i, cacheMaxCombination);
     //    printf("\nT(%2d:|%d|-|%d|): ", idx, i, limmit);
     //    printCombination(currentCombination, k);
     while (i < limmit && !found && !result[0]) {
+        //        debugar = k == 14 && currentCombination[0] == 0
+        //                && currentCombination[1] == 7 && currentCombination[2] == 8
+        //                && currentCombination[3] == 10 && currentCombination[4] == 12
+        //                && currentCombination[5] == 13 && currentCombination[6] == 15
+        //                && currentCombination[7] == 17 && currentCombination[8] == 19
+        //                && currentCombination[9] == 20 && currentCombination[10] == 21
+        //                && currentCombination[11] == 22 && currentCombination[12] == 23
+        //                && currentCombination[13] == 24
+        //        ;
         //        sizeCurrentHcp3 = checkConvexityP3CSR(csrColIdxs, nvertices,
         //                csrRowOffset, sizeRowOffset,
         //                aux, nvertices, currentCombination, k);
@@ -279,53 +301,63 @@ __global__ void kernelFindHullNumber(int *csrColIdxs, int nvertices,
         sizeCurrentHcp3 = 0;
 
         for (int y = 0; y < nvertices; y++) {
-            aux[y] = 0;
+            aux[auxoffset + y] = 0;
         }
 
         for (int j = 0; j < k; j++) {
             tailQueue = (tailQueue + 1) % maxSizeQueue;
             queue[tailQueue] = currentCombination[j];
         }
-        //        printCombination(currentCombination, k);
-        //        printf("\n");
+        //        if (debugar) {
+        //            printCombination(currentCombination, k);
+        //            printf("\n");
+        //        }
         while (headQueue <= tailQueue) {
-            //            printQueue(queue, headQueue, tailQueue);
+            //            if (debugar) {
+            //                printQueue(queue, headQueue, tailQueue);
+            //            }
 
             int verti = queue[headQueue];
             headQueue = (headQueue + 1) % maxSizeQueue;
 
-            //            printf("vi: %d", verti);
+            //            if (debugar) {
+            //                printf("vi: %d", verti);
+            //            }
 
-            if (aux[verti] < PROCESSED) {
+            if (aux[auxoffset + verti] < PROCESSED) {
                 sizeCurrentHcp3++;
                 int end = csrColIdxs[verti + 1];
                 int x = csrColIdxs[verti];
-                //                printf("vi: %d -- processando d(vi[%d-%d])=%d", verti, x, end, end - csrColIdxs[verti]);
+                //                if (debugar) {
+                //                    printf("-- processando d(vi[%d-%d])=%d", x, end, end - csrColIdxs[verti]);
+                //                }
                 for (; x < end; x++) {
                     int vertn = csrRowOffset[x];
                     if (vertn != verti) {
-                        unsigned char previousValue = aux[vertn];
+                        unsigned char previousValue = aux[auxoffset + vertn];
                         if (previousValue < INCLUDED) {
-                            aux[vertn] = aux[vertn] + NEIGHBOOR_COUNT_INCLUDED;
+                            aux[auxoffset + vertn] = aux[auxoffset + vertn] + NEIGHBOOR_COUNT_INCLUDED;
                         }
-                        if (previousValue < INCLUDED && aux[vertn] >= INCLUDED) {
+                        if (previousValue < INCLUDED && aux[auxoffset + vertn] >= INCLUDED) {
                             tailQueue = (tailQueue + 1) % maxSizeQueue;
                             queue[tailQueue] = vertn;
                         }
                     }
                 }
-                aux[verti] = PROCESSED;
+                aux[auxoffset + verti] = PROCESSED;
             }
             //            else {
             //                printf("vi: %d -- ja processado", verti);
             //            }
         }
-
-        //        printf("\nHcp3(idx-%d,il-%d,k-%d)=%d ", idx, i, k, sizeCurrentHcp3);
+        //        if (debugar) {
+        //            printf("\nHcp3(idx-%d,il-%d,k-%d)=%d ", idx, i, k, sizeCurrentHcp3);
+        //        }
         found = (sizeCurrentHcp3 == nvertices);
-        if (!found)
+        if (!found) {
             nextCombination(nvertices, k, currentCombination);
-        i++;
+            i++;
+        }
     }
     if (found) {
         result[0] = sizeCurrentHcp3;
@@ -334,7 +366,7 @@ __global__ void kernelFindHullNumber(int *csrColIdxs, int nvertices,
     }
     free(queue);
     free(currentCombination);
-    free(aux);
+    //    free(aux);
 }
 
 void parallelFindHullNumber(UndirectedCSRGraph *graph) {
@@ -352,12 +384,20 @@ void parallelFindHullNumber(UndirectedCSRGraph *graph) {
     int* csrColIdxsGpu;
     int* csrRowOffsetGpu;
     int *resultGpu;
+    unsigned char *auxGpu;
+    unsigned int *cacheMaxCombination;
+
+    //    cudaDeviceSetLimit(cudaLimitPrintfFifoSize, 50 * 1024 * 1024);
 
     int numBytesClsIdx = sizeof (int)*(verticesCount + 1);
     cudaMalloc((void**) &csrColIdxsGpu, numBytesClsIdx);
 
     int numBytesRowOff = sizeof (int)*sizeRowOffset;
     cudaMalloc((void**) &csrRowOffsetGpu, numBytesRowOff);
+
+    cudaMalloc((void**) &auxGpu, sizeof (unsigned char)*DEFAULT_THREAD_PER_BLOCK * nvs);
+    cudaMalloc((void**) &cacheMaxCombination, sizeof (unsigned int)*nvs);
+    cudaMemset(cacheMaxCombination, 0, sizeof (unsigned int)*nvs);
 
     int numBytesResult = sizeof (int)*2;
     cudaMalloc((void**) &resultGpu, numBytesResult);
@@ -382,8 +422,8 @@ void parallelFindHullNumber(UndirectedCSRGraph *graph) {
     bool found = false;
 
     graph->begin_parallel_time = clock();
-    //    while (currentSize < maxSize - 1 && !found) {
-    while (currentSize < 15 && !found) {
+    while (currentSize < maxSize - 1 && !found) {
+        //    while (currentSize < 14 && !found) {
         currentSize++;
         k = currentSize;
         int maxCombination = maxCombinations(nvs, k);
@@ -392,14 +432,16 @@ void parallelFindHullNumber(UndirectedCSRGraph *graph) {
         if (DEFAULT_THREAD_PER_BLOCK > maxCombination) {
             threadsPerBlock = maxCombination / 3;
         }
-        //        int threadsPerBlock = 4;
-        printf("\n%d-Comb(%d,%d)=%d", k, verticesCount, k, maxCombination);
+        //        int threadsPerBlock = 1;
+
         int offset = maxCombination / threadsPerBlock;
-        //        if ((maxCombination % threadsPerBlock) > 0) {
-        //            offset++;
-        //        }
+        //        int offset = maxCombination;
+        //        clock_t t = clock();
         kernelFindHullNumber << < 1, threadsPerBlock >>> (csrColIdxsGpu, verticesCount,
-                csrRowOffsetGpu, sizeRowOffset, maxCombination, k, offset, resultGpu);
+                csrRowOffsetGpu, sizeRowOffset, maxCombination, k, offset, resultGpu, auxGpu,
+                cacheMaxCombination);
+        //        t = clock() - t;
+        //        printf("\n%d-Comb(%d,%d)=%d --> tempo: %d", k, verticesCount, k, maxCombination, t);
         cudaMemcpy(result, resultGpu, numBytesResult, cudaMemcpyDeviceToHost);
         found = (result[0] == nvs);
     }
@@ -413,4 +455,6 @@ void parallelFindHullNumber(UndirectedCSRGraph *graph) {
     cudaFree(resultGpu);
     cudaFree(csrRowOffsetGpu);
     cudaFree(csrColIdxsGpu);
+    cudaFree(auxGpu);
+    cudaFree(cacheMaxCombination);
 }

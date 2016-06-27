@@ -124,6 +124,11 @@ int main(int argc, char** argv) {
     if (parallel)
         parallelFindHullNumber(&csr);
 
+    //    int n1 = 25, k = 14, idx = 1000;
+    //    int* combinationArray = new int[25];
+    //    initialCombination(n1, k, combinationArray, idx);
+    //    printCombination(combinationArray, k);
+
     printf("\nTotal time serial: %ld\nTotal time parallel: %ld\n",
             csr.getTotalTimeSerial(),
             csr.getTotalTimeParallel());
