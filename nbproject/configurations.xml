@@ -29,7 +29,7 @@
                    kind="IMPORTANT_FILES_FOLDER">
       <itemPath>Makefile</itemPath>
     </logicalFolder>
-    <itemPath>graph-test.txt</itemPath>
+    <itemPath>graph-test/graph-test.txt</itemPath>
   </logicalFolder>
   <projectmakefile>Makefile</projectmakefile>
   <confs>
@@ -51,7 +51,7 @@
       </item>
       <item path="UndirectedSparseGraph.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="graph-test.txt" ex="false" tool="3" flavor2="0">
+      <item path="graph-test/graph-test.txt" ex="false" tool="3" flavor2="0">
       </item>
     </conf>
     <conf name="Release" type="1">
@@ -84,7 +84,7 @@
       </item>
       <item path="UndirectedSparseGraph.h" ex="false" tool="3" flavor2="0">
       </item>
-      <item path="graph-test.txt" ex="false" tool="3" flavor2="0">
+      <item path="graph-test/graph-test.txt" ex="false" tool="3" flavor2="0">
       </item>
     </conf>
   </confs>

@@ -20,6 +20,8 @@ public:
     clock_t begin_parallel_time, end_parallel_time;
 
     UndirectedSparseGraph(const int size) {
+        begin_serial_time = end_serial_time = 0;
+        begin_parallel_time = end_parallel_time = 0;
         vertices = (int *) malloc(size * sizeof (int));
         adj_list = new std::list < int > [size];
         nVertices = size;
@@ -90,6 +92,8 @@ public:
 
     UndirectedCSRGraph(int *csrClIdxs, int nVerts,
             int *csrRowOffst, int sizeRowOffst) {
+        begin_serial_time = end_serial_time = 0;
+        begin_parallel_time = end_parallel_time = 0;
         nVertices = nVerts;
         sizeRowOffset = sizeRowOffst;
         csrColIdxs = csrClIdxs;
@@ -97,6 +101,8 @@ public:
     }
 
     UndirectedCSRGraph(UndirectedSparseGraph* graph) {
+        begin_serial_time = end_serial_time = 0;
+        begin_parallel_time = end_parallel_time = 0;
         nVertices = graph->getVerticesCount();
         sizeRowOffset = 0;
         csrColIdxs = new int[nVertices + 1];
