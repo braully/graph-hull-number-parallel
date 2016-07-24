@@ -13,24 +13,25 @@
 #include <stdlib.h>
 #include <list>
 #include <time.h>
+#include <iostream>
 
 class UndirectedSparseGraph {
 public:
     clock_t begin_serial_time, end_serial_time;
     clock_t begin_parallel_time, end_parallel_time;
 
-    UndirectedSparseGraph(const int size) {
+    UndirectedSparseGraph(const long size) {
         begin_serial_time = end_serial_time = 0;
         begin_parallel_time = end_parallel_time = 0;
-        vertices = (int *) malloc(size * sizeof (int));
-        adj_list = new std::list < int > [size];
+        vertices = (long *) malloc(size * sizeof (long));
+        adj_list = new std::list < long > [size];
         nVertices = size;
-        for (int i = 0; i < size; i++) {
+        for (long i = 0; i < size; i++) {
             vertices[i] = i;
         }
     }
 
-    void addEdge(int v1, int v2) {
+    void addEdge(long v1, long v2) {
         if (v1 >= nVertices || v2 >= nVertices) {
             perror("Invalid vertices!");
         }
@@ -39,9 +40,9 @@ public:
         //        vertices[v1].
     }
 
-    void printGraph() {
+    void prlongGraph() {
         printf("\nVertices: {");
-        for (int i = 0; i < nVertices; i++) {
+        for (long i = 0; i < nVertices; i++) {
             printf("v%d(d%ld)", vertices[i], adj_list[i].size());
             if (i < nVertices - 1) {
                 printf(", ");
@@ -50,18 +51,18 @@ public:
         printf("}\n");
     }
 
-    int degree(int vert) {
+    long degree(long vert) {
         if (vert >= nVertices) {
             perror("Invalid vertices!");
         }
         return adj_list[vert].size();
     }
 
-    int getVerticesCount() {
+    long getVerticesCount() {
         return nVertices;
     }
 
-    std::list<int> getAdjacency(int vert) {
+    std::list<long> getAdjacency(long vert) {
         if (vert > nVertices) {
             perror("Invalid vertice");
         }
@@ -72,9 +73,9 @@ public:
 
     }
 private:
-    int *vertices;
-    int nVertices;
-    std::list < int >* adj_list;
+    long *vertices;
+    long nVertices;
+    std::list < long >* adj_list;
 };
 
 class UndirectedCSRGraph {
@@ -83,15 +84,21 @@ public:
     clock_t begin_parallel_time, end_parallel_time;
 
     clock_t getTotalTimeSerial() {
-        return end_serial_time - begin_serial_time;
+        return diffclockms(end_serial_time, begin_serial_time);
     }
 
     clock_t getTotalTimeParallel() {
-        return end_parallel_time - begin_parallel_time;
+        return diffclockms(end_parallel_time, begin_parallel_time);
     }
 
-    UndirectedCSRGraph(int *csrClIdxs, int nVerts,
-            int *csrRowOffst, int sizeRowOffst) {
+    double diffclockms(clock_t c1, clock_t c2) {
+        double diff = c1 - c2;
+        diff = diff / (CLOCKS_PER_SEC / 1000);
+        return diff;
+    }
+
+    UndirectedCSRGraph(long *csrClIdxs, long nVerts,
+            long *csrRowOffst, long sizeRowOffst) {
         begin_serial_time = end_serial_time = 0;
         begin_parallel_time = end_parallel_time = 0;
         nVertices = nVerts;
@@ -105,19 +112,19 @@ public:
         begin_parallel_time = end_parallel_time = 0;
         nVertices = graph->getVerticesCount();
         sizeRowOffset = 0;
-        csrColIdxs = new int[nVertices + 1];
-        for (int i = 0; i < nVertices; i++) {
+        csrColIdxs = new long[nVertices + 1];
+        for (long i = 0; i < nVertices; i++) {
             csrColIdxs[i] = 0;
             sizeRowOffset = sizeRowOffset + graph->degree(i);
         }
 
-        csrRowOffset = new int[sizeRowOffset];
-        int idx = 0;
-        for (int i = 0; i < nVertices; i++) {
+        csrRowOffset = new long[sizeRowOffset];
+        long idx = 0;
+        for (long i = 0; i < nVertices; i++) {
             csrColIdxs[i] = idx;
-            std::list<int>::iterator it;
-            std::list<int> tmp = graph->getAdjacency(i);
-            for (std::list<int>::iterator it = tmp.begin(); it != tmp.end(); ++it) {
+            std::list<long>::iterator it;
+            std::list<long> tmp = graph->getAdjacency(i);
+            for (std::list<long>::iterator it = tmp.begin(); it != tmp.end(); ++it) {
                 //                if (verboseCsr) {
                 //                    printf("csrRow[%d] = %d\n", idx, *it);
                 //                }
@@ -127,44 +134,44 @@ public:
         csrColIdxs[nVertices] = idx;
     }
 
-    int *getCsrColIdxs() {
+    long *getCsrColIdxs() {
         return csrColIdxs;
     }
 
-    int *getCsrRowOffset() {
+    long *getCsrRowOffset() {
         return csrRowOffset;
     }
 
-    int getOffsetBeginNeighbors(int vert) {
+    long getOffsetBeginNeighbors(long vert) {
         if (vert >= nVertices) {
             perror("Invalid vertices!");
         }
         return csrColIdxs[vert];
     }
 
-    int getIdxAdjList(int idx) {
+    long getIdxAdjList(long idx) {
         return csrRowOffset[idx];
     }
 
-    int getOffsetEndNeighbors(int vert) {
+    long getOffsetEndNeighbors(long vert) {
         if (vert >= nVertices) {
             perror("Invalid vertices!");
         }
         return csrColIdxs[vert + 1];
     }
 
-    int degree(int vert) {
+    long degree(long vert) {
         if (vert >= nVertices) {
             perror("Invalid vertices!");
         }
         return csrColIdxs[vert + 1] - csrColIdxs[vert];
     }
 
-    int getVerticesCount() {
+    long getVerticesCount() {
         return nVertices;
     }
 
-    int getSizeRowOffset() {
+    long getSizeRowOffset() {
         return sizeRowOffset;
     }
 
@@ -172,14 +179,14 @@ public:
         printf("\nN. vertices: %d", nVertices);
         printf("\nSize RowOffset: %d", sizeRowOffset);
         printf("\nR: {");
-        for (int i = 0; i < nVertices + 1; i++) {
+        for (long i = 0; i < nVertices + 1; i++) {
             printf("%d", csrColIdxs[i]);
             if (i < nVertices) {
                 printf(", ");
             }
         }
         printf("} \nC: {");
-        for (int i = 0; i < sizeRowOffset; i++) {
+        for (long i = 0; i < sizeRowOffset; i++) {
             printf("%d", csrRowOffset[i]);
             if (i < sizeRowOffset - 1) {
                 printf(", ");
@@ -189,9 +196,9 @@ public:
     }
     //    virtual ~UndirectedCSRGraph();
 private:
-    int nVertices;
-    int sizeRowOffset;
-    int *csrColIdxs;
-    int *csrRowOffset;
+    long nVertices;
+    long sizeRowOffset;
+    long *csrColIdxs;
+    long *csrRowOffset;
 };
 

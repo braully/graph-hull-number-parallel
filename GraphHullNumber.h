@@ -15,5 +15,5 @@ int checkConvexityP3(UndirectedCSRGraph *graph,
         unsigned char *aux,
         int auxSize,
         int *currentCombination,
-        int sizeComb);
+        int sizeComb, long idx);
 

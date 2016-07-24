@@ -26,7 +26,7 @@ bool verboseGraph = false;
 void printHelp() {
     printf("\n\tp: Parallel execution");
     printf("\n\ts: Serial execution");
-    printf("\n\th: Print this help message");
+    printf("\n\th: Prlong this help message");
     printf("\n\tinput: Graph file in format CSR, see graph-test.txt");
 }
 
@@ -58,14 +58,14 @@ void processFile(std::string strFile, bool serial, bool parallel, bool verbose) 
 
     std::stringstream stream(strCArray);
     std::vector<int> values;
-    int n;
+    long n;
     while (stream >> n) {
         values.push_back(n);
     }
     strCArray.clear();
 
-    int numVertices = values.size() - 1;
-    int *colIdx = new int[numVertices + 1];
+    long numVertices = values.size() - 1;
+    long *colIdx = new long[numVertices + 1];
     std::copy(values.begin(), values.end(), colIdx);
     values.clear();
     stream.str("");
@@ -77,8 +77,8 @@ void processFile(std::string strFile, bool serial, bool parallel, bool verbose) 
     stream2.str("");
     strRArray.clear();
 
-    int sizeRowOffset = values.size();
-    int *rowOffset = new int[sizeRowOffset];
+    long sizeRowOffset = values.size();
+    long *rowOffset = new long[sizeRowOffset];
     std::copy(values.begin(), values.end(), rowOffset);
     values.clear();
 
@@ -93,20 +93,26 @@ void processFile(std::string strFile, bool serial, bool parallel, bool verbose) 
 
     if (serial) {
         serialFindHullNumber(&csr);
-        printf("Total time serial: %ld\n",
+        printf("Total time serial: %ldms\n",
                 csr.getTotalTimeSerial());
     }
     if (parallel) {
         parallelFindHullNumber(&csr);
-        printf("Total time parallel: %ld\n",
+        printf("Total time parallel: %ldms\n",
                 csr.getTotalTimeParallel());
+    }
+
+    if (serial && parallel) {
+        double speedup = (double) csr.getTotalTimeSerial() / csr.getTotalTimeParallel();
+        printf("Speedup: %fx\n", speedup);
+
     }
 }
 
 int main(int argc, char** argv) {
-    int opt = 0;
-    char* strFile = "graph-test";
-    //    char* strFile = "graph-csr-2124643542179835849.txt";
+    long opt = 0;
+    //    char* strFile = "graph-test";
+    char* strFile = "graph-test/low/graph-csr-2124643542179835849.txt";
     bool serial = false;
     bool parallel = false;
     bool verbose = false;
